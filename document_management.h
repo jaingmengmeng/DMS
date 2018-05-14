@@ -16,6 +16,19 @@ class DIR
     ~DIR();
 };
 
+
+/*class DIR_TABLE
+{
+    private:
+    vector<DIR> list;//DIR的列表
+    int num;//DIR列表的数量
+    int size;//DIR列表的大小,单位Byte
+    public:
+    DIR_TABLE(int,int);
+    ~DIR_TABLE();
+};*/
+
+
 class INODE
 {
     private:
@@ -29,3 +42,15 @@ class INODE
     ~INODE();
     void put(int,int);//修改point的第n个为k
 };
+
+
+/*class INODE_TABLE
+{
+    private:
+    vector<INODE> list;
+    int size;
+    int num;
+    public:
+    INODE_TABLE(int,int);
+    ~INODE_TABLE();
+};*/
