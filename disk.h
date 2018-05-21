@@ -1,25 +1,3 @@
-// #pragma once
-
-// #include <string>
-// #include <fstream>
-// #include <iostream>
-// using namespace std;
-
-// class Disk {
-// private:
-// 	const string disk_file;
-// 	int BLKsize;		// size of a single block
-// public:
-// 	Disk();
-// 	~Disk();
-
-// 	bool GETABLOCK(char buf[], int block_num);
-// 	bool GETPBLOCK(char buf[], int block_num);
-// 	bool GETPBLOCK(char buf[], int block_num, int l);
-// 	bool PUTABLOCK(char buf[], int block_num);
-// 	bool PUTPBLOCK(char buf[], int block_num);
-// 	bool PUTPBLOCK(char buf[], int block_num, int l);
-// };
 #pragma once
 
 #include <string>
@@ -30,11 +8,11 @@ using namespace std;
 class Disk {
 private:
 	const string disk_file;
-	int blocksize;		// size of a single block
+	int blocksize;
 public:
 	Disk();
 	~Disk();
 
-	bool GETBLOCK(char buf[], int block_num, int offset, int length);
-	bool PUTBLOCK(char buf[], int block_num, int offset, int length);
+	bool GETBLOCK(char buf[], int block_num);
+	bool PUTBLOCK(char buf[], int block_num);
 };

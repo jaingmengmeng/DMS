@@ -1,9 +1,14 @@
 #include "bitmap.h"
 
-Bitmap::Bitmap(int n=0)
+Bitmap::Bitmap()
+{
+    Bitmap_size = 0;
+}
+
+Bitmap::Bitmap(int n)
 {
 	Bitmap_size = n;
-    for(int i=0;i<n;i++)
+    for(int i=0;i<ceil(n/32.0);i++)
     {
         data.push_back(0);
     }
@@ -15,19 +20,14 @@ void Bitmap::set(int i)
 {
     if(i>=Bitmap_size)
     {
-        Bitmap_size = i;
-        for(int j=Bitmap;j<=i;j++)
-        {
-            if(j==i)data.push_back(1);
-            else data.push_back(0);
-        }
+        cout<<"ERROR."<<endl;
     }
     else data[i>>SHIFT] |=  (1<<(i & MASK)); 
 }
 
 void Bitmap::clr(int i)
 {
-    if(Bitmap_size<=i)cout<<"clr ERROR."<<endl;
+    if(Bitmap_size<=i)cout<<"ERROR."<<endl;
     else data[i>>SHIFT] &= ~(1<<(i & MASK));
 }
 
@@ -43,8 +43,9 @@ int Bitmap::test(int i)
 {
     if(Bitmap_size<=i)
     {
-        cout<<"test ERROR."<<endl;
+        cout<<"ERROR."<<endl;
         return -1;
     }
-    else return data[i>>SHIFT] & (1<<(i & MASK));
+    else if(data[i>>SHIFT] & (1<<(i & MASK)))return 1;
+    else return 0;
 }
