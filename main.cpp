@@ -152,7 +152,7 @@ void print_rule()
         <<"[ls]         List directory distinguishing betwwen files and folders."<<endl
         <<"[cd]         Switch to the working directory."<<endl
         <<"[mkdir]      Create new folders under the specified directory." << endl
-        //<<"[rmdir]      Delete folders form the specified directory." << endl
+        <<"[rmdir]      Delete folders form the specified directory." << endl
         <<"[touch]      Create files under the specified directory." << endl
         <<"[rmfile]     Delete files from the specified directory." << endl
         //<<"[move]       Move files or folders." << endl
@@ -180,7 +180,7 @@ void select()
             case ls_op:     ls();break;
             case cd_op:     scanf("%s",name_1);name = name_1;cd(name);break;
             case mkdir_op:  scanf("%s",name_1);name = name_1;mkdir(name);break;
-            //case rmdir_op:  scanf("%s",name_1);name = name_1;cout<<name<<endl;rmdir(name);break;
+            case rmdir_op:  scanf("%s",name_1);name = name_1;cout<<name<<endl;rmdir(name);break;
             case touch_op:  scanf("%s",name_1);name = name_1;touch(name);break;
             case rmfile_op: scanf("%s",name_1);name = name_1;rmfile(name);break;
             //case move_op:   scanf("%s %s",name_1,name_2);name = name_1;name2 = name_2;move(name,name2);break;
@@ -528,9 +528,10 @@ void d_delete(int k)
     mydisk.GETBLOCK(tem_buf,k);
     vector<DIR> tem_table;
     tem_table = get_DIR_table(buf);
+    BLOCK_bitmap.clr(k);
     for(int i=0;i<tem_table.size();i++)
     {
-        if(tem_table[i].filename[0])
+        if(tem_table[i].type != 0)
         {
             if(tem_table[i].type == 1)d_delete(INODE_table[tem_table[i].child].point[0]);
             else if(tem_table[i].type == 2)f_delete(tem_table[i].child);
@@ -552,6 +553,8 @@ void rmdir(string name)
     {
         if(DIR_table[i].filename == name && DIR_table[i].type == 1)
         {
+            INODE_bitmap.clr(DIR_table[i].child);
+            d_delete(INODE_table[DIR_table[i].child].point[0]);//给定DIR的index索引，将该目录下的所有文件都删除，并重置 bitmap
             for(int j = i;j<DIR_table.size()-1;j++)
             {
                 DIR temp_d;
@@ -561,7 +564,7 @@ void rmdir(string name)
             DIR temp_d("",0,0);
             write_DIR(index,DIR_table.size(),temp_d);
             DIR_table.erase(DIR_table.begin()+i);
-            d_delete(INODE_table[DIR_table[i].child].point[0]);//给定DIR的index索引，将该目录下的所有文件都删除，并重置 bitmap
+            print_DIR_table();
             return;
         }
     }
@@ -790,26 +793,80 @@ int get_DIR_index(vector<string> tem_rute) {//返回路径所指目录的索引�
 void print_rute(vector<string> tem) {
     cout<<tem[0]<<":";
     for(int i=1;i<tem.size();i++)
-        cout<<"\\"<<tem[i];
-    cout<<">";
+        cout<<"/"<<tem[i];
+    cout<<"> ";
 }
 
-vector<string> string_2_rute(string n) {//将string解析成路径
+/*vector<string> string_2_rute(string n) {//将string解析成路径
     string name = n;
     vector<string> list;
     int pos = 0;
     size_t last = 0;
     size_t found = name.find_first_of("/");
     while(found != string::npos) {
-        string str = name.substr(last,found-last);
-        if(str == "")list.push_back("root");
-        else list.push_back(str);
+        if(found == 0)list.push_back("root");
+        else 
+        {
+            string str = name.substr(last,found-last);
+            list.push_back(str);
+        }
         name[found] = '*';
         last = found+1;
         found = name.find_first_of("/");
     }
     string str = name.substr(last,name.size());
     list.push_back(str);
+    return list;
+}*/
+vector<string> string_2_rute(vector<string> cur_rute,string name) {//将string解析成路径
+    while(true)//去除name后面的"/","\"
+    {
+        char ch = name[name.size()-1];
+        if(ch == '\\' || ch == '/')
+        {
+            name.pop_back();
+        }
+        else break;
+    }
+    vector<string> list;
+    list = cur_rute;
+    int pos = 0;
+    size_t last = 0;
+    size_t found = name.find_first_of("/\\");
+    while(found != string::npos) {
+        if(found == 0){
+            list.clear();
+            list.push_back(root_str);
+        }
+        else 
+        {
+            string str = name.substr(last,found-last);
+            if(found-last)list.push_back(str);
+            if(str == ".")list.erase(list.end());
+            else if(str == "..") {
+                list.erase(list.end());
+                if(!list.empty())list.erase(list.end());
+            }
+            else if(str == root_str && last == 0 ) {
+                list.clear();
+                list.push_back(root_str);
+            }
+        }
+        name[found] = '*';
+        last = found+1;
+        found = name.find_first_of("/\\");
+    }
+    string str = name.substr(last,name.size());
+    list.push_back(str);
+    if(str == ".")list.erase(list.end());
+    else if(str == "..") {
+        list.erase(list.end());
+        if(!list.empty())list.erase(list.end());
+    }
+    else if(str == root_str && last == 0 ) {
+        list.clear();
+        list.push_back(root_str);
+    }
     return list;
 }
 
