@@ -1,0 +1,3 @@
+g++ -o main main.cpp mytime.cpp inode.cpp disk.cpp bitmap.cpp dir.cpp
+
+g++ -o initial initial.cpp mytime.cpp

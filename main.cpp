@@ -34,7 +34,10 @@ Bitmap INODE_bitmap(INODE_NUM);//构建INOCDE_bitmap。
 Bitmap BLOCK_bitmap(BLOCK_NUM);//构建BLOCK_bitmap。
 vector<INODE> INODE_table;//将INODE_TABLE保存在内存里，这样就不用每次读取时临时从磁盘加载。当INODE_table被修改时，将修改的INODE_table更新到磁盘。
 vector<DIR> DIR_table;//DIR_TABLE一般存放的是当前目录的目录文件，每次使用时，需要从内存临时加载一整块目录文件。
-vector<string> rute;//保存的是当前目录的路径。
+vector<string> cur_rute;//保存的是当前目录的路径。
+vector<string> rute;//用来记录制定的路径，可以是文件，也可以是文件夹
+string con;
+string name;
 Disk mydisk;//disk类，每次与磁盘进行文件交互时都是按块大小进行的。
 const string root_str = "Root";//默认的根目录的文件名。
 const string file_name = "disk";//默认的模拟磁盘文件是 “ disk ” 。
@@ -61,17 +64,17 @@ const int dire_op = 16;
 
 void dir();
 void ls();
-void cd(string name);
-void mkdir(string name);
-void rmdir(string name);
-void touch(string name);
-void rmfile(string name);
-void move(string name_1,string name_2);
-void write(string filename,string con);
-void cat(string name);
+void cd();
+void mkdir();
+void rmdir(vector<string>);
+void touch();
+void rmfile();
+void move(vector<string>);
+void write();
+void cat();
 void help();
 void cls();
-void copy(string name_1,string name_2);
+void copy();
 
 vector<DIR> get_DIR_table(char buf[]);//给定一个磁盘块的字符串，将它转化成DIR_table
 int find_DIR_in_DIR_table(vector<DIR>,string,int);
@@ -107,7 +110,7 @@ void initial();//doing
 int main()
 {
     system("cls");
-    rute.push_back(root_str);
+    cur_rute.push_back(root_str);
     initial();//从磁盘读入文件系统的信息。包括上面的那些全局变量并构建INODE_table,DIR_table,INODE_bitmap,block_bitmap;
     select();//输入op及相关参数，解析成命令并执行
     return 0;
@@ -116,32 +119,52 @@ int main()
 
 
 
-int input()
+int input()//还要考虑输入参数不够的情况
 {
     int k = -1;
-    char op[16] = {0};
-    memset(op,0,sizeof(op));
-    print_rute(rute);
-    scanf("%s",op);
-    getchar();
-    if(strcmp(op,"dir")==0)k = dir_op;
-    else if(strcmp(op,"ls")==0)k = ls_op;
-    else if(strcmp(op,"cd")==0)k = cd_op;
-    else if(strcmp(op,"mkdir")==0)k = mkdir_op;
-    else if(strcmp(op,"rmdir")==0)k = rmdir_op;
-    else if(strcmp(op,"touch")==0)k = touch_op;
-    else if(strcmp(op,"rmfile")==0)k = rmfile_op;
-    else if(strcmp(op,"move")==0)k = move_op;
-    else if(strcmp(op,"write")==0)k = write_op;
-    else if(strcmp(op,"cat")==0)k = cat_op;
-    else if(strcmp(op,"help")==0)k = help_op;
-    else if(strcmp(op,"cls")==0)k = cls_op;
-    else if(strcmp(op,"copy")==0)k = copy_op;
-    else if(strcmp(op,"hault")==0)k = hault_op;
-    else if(strcmp(op,"quit")==0)k = hault_op;
-    else if(strcmp(op,"inode")==0)k = inode_op;
-    else if(strcmp(op,"block")==0)k = block_op;
-    else if(strcmp(op,"dire")==0)k = dire_op;
+    int t = 0;
+    string op;
+    string str[3];
+    print_rute(cur_rute);
+    getline(cin,op);
+    size_t last = 0;
+    size_t found = op.find_first_of(" ");
+    while(found != string::npos&&t<2)
+    {
+        str[t] = op.substr(last,found-last);
+        op[found] = '*';
+        last = found + 1;
+        found = op.find_first_of(" ");
+        t++;
+    }
+    str[t] = op.substr(last);
+    /*for(int i=0;i<3;i++)
+        cout<<str[i]<<"&";
+    cout<<endl;*/
+    if(str[0] == "dir")k = dir_op;
+    else if(str[0] == "ls")k = ls_op;
+    else if(str[0] == "cd")k = cd_op;
+    else if(str[0] == "mkdir")k = mkdir_op;
+    else if(str[0] == "rmdir")k = rmdir_op;
+    else if(str[0] == "touch")k = touch_op;
+    else if(str[0] == "rmfile")k = rmfile_op;
+    else if(str[0] == "move")k = move_op;
+    else if(str[0] == "write")k = write_op;
+    else if(str[0] == "cat")k = cat_op;
+    else if(str[0] == "help")k = help_op;
+    else if(str[0] == "cls")k = cls_op;
+    else if(str[0] == "copy")k = copy_op;
+    else if(str[0] == "hault")k = hault_op;
+    else if(str[0] == "quit")k = hault_op;
+    else if(str[0] == "inode")k = inode_op;
+    else if(str[0] == "block")k = block_op;
+    else if(str[0] == "dire")k = dire_op;
+    rute = string_2_rute(str[1]);
+    con = str[2];
+    /*cout<<str[0]<<endl;
+    cout<<str[1]<<endl;
+    cout<<con<<endl;*/
+    //print_rute();
     return k;
 }
 
@@ -155,22 +178,19 @@ void print_rule()
         <<"[rmdir]      Delete folders form the specified directory." << endl
         <<"[touch]      Create files under the specified directory." << endl
         <<"[rmfile]     Delete files from the specified directory." << endl
-        //<<"[move]       Move files or folders." << endl
+        <<"[move]       Move files or folders." << endl
         <<"[write]      Wirte files" << endl
         <<"[cat]        View the contents of the specified file." << endl
         <<"[help]       Print the helping menu." << endl
         <<"[cls]        Clear screen." << endl
-        //<<"[copy]       Copy the specified file."<<endl
+        <<"[copy]       Copy the specified file."<<endl
         <<"[hault/quit] Exit from the current file system."<<endl
         <<"*************************************************************************"<<endl;
 }
 
 void select()
 {
-    string name;
-    string name2;
-    char name_1[16]={0};
-    char name_2[16]={0};
+	vector<string> dirc;
     //print_rule();
     while(true)
     {
@@ -178,22 +198,22 @@ void select()
         {
             case dir_op:    dir();break;
             case ls_op:     ls();break;
-            case cd_op:     scanf("%s",name_1);name = name_1;cd(name);break;
-            case mkdir_op:  scanf("%s",name_1);name = name_1;mkdir(name);break;
-            case rmdir_op:  scanf("%s",name_1);name = name_1;cout<<name<<endl;rmdir(name);break;
-            case touch_op:  scanf("%s",name_1);name = name_1;touch(name);break;
-            case rmfile_op: scanf("%s",name_1);name = name_1;rmfile(name);break;
-            //case move_op:   scanf("%s %s",name_1,name_2);name = name_1;name2 = name_2;move(name,name2);break;
-            case write_op:  scanf("%s",name_1);getchar();getline(cin,name2);name = name_1;write(name,name2);break;
-            case cat_op:    scanf("%s",name_1);name = name_1;cat(name);break;
+            case cd_op:     cd();break;
+            case mkdir_op:  name = rute[rute.size()-1];rute.pop_back();mkdir();break;
+            case rmdir_op:  rmdir(rute);break;
+            case touch_op:  name = rute[rute.size()-1];rute.pop_back();touch();break;
+            case rmfile_op: name = rute[rute.size()-1];rute.pop_back();rmfile();break;
+            case write_op:  name = rute[rute.size()-1];rute.pop_back();write();break;
+            case cat_op:    name = rute[rute.size()-1];rute.pop_back();cat();break;
             case help_op:   print_rule();break;
             case cls_op:    system("cls");break;
-            //case copy_op:   scanf("%s %s",name_1,name_2);name = name_1;name2 = name_2;move(name,name2);break;
-            case hault_op:  cout<<"Thank You!!"<<endl;return;
+            case copy_op:   name = rute[rute.size()-1];rute.pop_back();copy();break;
             case inode_op:  print_INODE_bitmap();break;
             case block_op:  print_BLOCK_bitmap();break;  
-            case dire_op:   print_DIR_table();break;  
-            default:        cout<<"Please enter the right operation."<<endl;break;
+            case dire_op:   print_DIR_table();break;
+            case hault_op:  cout<<"Thank You!!"<<endl;return;
+            case move_op:   dirc = string_2_rute(con);name = rute[rute.size()-1];rute.pop_back();con = dirc[dirc.size()-1];dirc.pop_back();move(dirc);break;
+            default: 		cout<<"Please enter the right operation."<<endl;break;
         }
     }
 }
@@ -366,7 +386,7 @@ void print_superblock()
 
 void dir()
 {
-    int index = get_DIR_index(rute);
+    int index = get_DIR_index(cur_rute);
     //cout<<"DIR index:"<<index<<endl;
     memset(buf,0,sizeof(buf));
     mydisk.GETBLOCK(buf,index);
@@ -376,7 +396,7 @@ void dir()
     int sum = 0;
     for(int i = 0; i < DIR_table.size(); i++)
     {
-        if(DIR_table[i].filename[0]) {
+        if(DIR_table[i].type != 0) {
             cout<<setw(10)<<DIR_table[i].filename;
             sum++;
         }
@@ -387,7 +407,7 @@ void dir()
 
 void ls()
 {
-    int index = get_DIR_index(rute);
+    int index = get_DIR_index(cur_rute);
     memset(buf,0,sizeof(buf));
     mydisk.GETBLOCK(buf,index);
     DIR_table.clear();
@@ -395,13 +415,13 @@ void ls()
     int sum = 0;
     for(int i = 0; i < DIR_table.size(); i++)
     {
-        if(DIR_table[i].filename[0] && DIR_table[i].type == 1) {
+        if(DIR_table[i].type == 1) {
             SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_RED);
             cout<<setw(10)<<DIR_table[i].filename;
             SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_INTENSITY|FOREGROUND_BLUE|FOREGROUND_GREEN|FOREGROUND_RED); 
             sum++;
         }
-        else {
+        else if(DIR_table[i].type == 2){
             SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),FOREGROUND_INTENSITY|FOREGROUND_BLUE);
             cout<<setw(10)<<DIR_table[i].filename;
             SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), FOREGROUND_INTENSITY|FOREGROUND_BLUE|FOREGROUND_GREEN|FOREGROUND_RED); 
@@ -411,33 +431,56 @@ void ls()
     cout<<endl;
 }
 
-void cd(string name)
+void cd()
 {
-    if(name == ".." || name == "../" || name == "..\\")
+    int index = get_DIR_index(rute);
+    string select;
+    if(index == -1)
     {
-        rute.pop_back();
+        cout<<"There is no directory named "<<rute[rute.size()-1]<<"."<<endl;
+        /*    <<"Do you want to build a new directory on this rute? [ y / n ]"<<endl;
+        getline(cin,select);
+        size_t found = select.find_first_of("yY");
+        //if(select[0] == 'y' || select[0] == 'Y')
+        if(found != string::npos)
+        {
+            vector<string> tem;
+            int i = 0;
+            tem.push_back(root_str);
+            int fd = DATA_BLOCK_ADD;//得到根目录文件的索引
+            memset(buf,0,sizeof(buf));
+            mydisk.GETBLOCK(buf,fd);//获取磁盘块内容
+            DIR_table.clear();
+            DIR_table = get_DIR_table(buf);//获得根目录的目录文件
+            int index;
+            i++;
+            while(true) 
+            {
+                if(i>=tem_rute.size())break;
+                index = find_DIR_in_DIR_table(DIR_table,tem_rute[i],0);//在根目录下找到级二级索引
+                //cout<<"get_DIR_index:index:"<<index<<endl;
+                if(index == -1)break;
+                tem.push_back(rute[i]);
+                fd = INODE_table[index].point[0];//得到目录文件索引
+                //cout<<"get_DIR_index:fd:"<<fd<<endl;
+                memset(buf,0,sizeof(buf));
+                mydisk.GETBLOCK(buf,fd);//找到下一级目录的目录文件
+                DIR_table.clear();
+                DIR_table = get_DIR_table(buf);//将目录文件转成DIR_table
+                i++;
+            }
+            for(int j = i;j<rute.size();j++)
+            {
+                tem.push_back(rute[j]);
+
+            }
+        }*/
     }
-    else if(name == "/" || name == "\\")
-    {
-        rute.clear();
-        rute.push_back(root_str);
-    }
-    else if(name == "./" || name == "." || name == ".\\");
-    else
-    {
-        string tem_name;
-        tem_name = name;
-        if(tem_name.size()<MAX_FILE_NAME) {
-            for(int i=tem_name.size();i<MAX_FILE_NAME;i++)
-                tem_name.push_back(' ');
-        }
-        int fd = find_DIR_in_DIR_table(DIR_table,tem_name,1);
-        if(fd == -1)cout<<"There is no directory named "<<name<<endl;
-        else rute.push_back(name);
-    }
+    else cur_rute = rute;
+    return;
 }
 
-void mkdir(string name)//在当前目录下加一项，新建一个INODE，新建一个DIR目录文件
+void mkdir()//在当前目录下加一项，新建一个INODE，新建一个DIR目录文件
 {
     if(name.size()>MAX_FILE_NAME) {
         cout<<"Sorry!!! The filename is too long."<<endl;
@@ -447,6 +490,11 @@ void mkdir(string name)//在当前目录下加一项，新建一个INODE，新�
         for(int i=name.size();i<MAX_FILE_NAME;i++)
             name.push_back(' ');
     }
+    if(name == "        ")
+    {
+    	cout<<"There folder's name can't be empty."<<endl;
+    	return;
+    }
     int index = get_DIR_index(rute);
     //cout<<"DIR index:"<<index<<endl;
     memset(buf,0,sizeof(buf));
@@ -455,7 +503,7 @@ void mkdir(string name)//在当前目录下加一项，新建一个INODE，新�
     DIR_table = get_DIR_table(buf);//得到了当前目录的目录文件
     for(int i=0;i<DIR_table.size();i++) {//判断重名的情况
         if(DIR_table[i].filename == name && DIR_table[i].type == 1) {
-            cout<<"The dirtory named "<<name<<" has already existed."<<endl;
+            cout<<"The folder named "<<name<<" has already existed."<<endl;
             return;
         }
     }
@@ -482,7 +530,7 @@ void mkdir(string name)//在当前目录下加一项，新建一个INODE，新�
     write_INODE(fd,temp_i);//向磁盘写入INODE
 }
 
-void touch(string name)//在当前目录下加一项，新建一个INODE
+void touch()//在当前目录下加一项，新建一个INODE
 {
     if(name.size()>MAX_FILE_NAME) {
         cout<<"Sorry!!! The filename is too long."<<endl;
@@ -491,6 +539,11 @@ void touch(string name)//在当前目录下加一项，新建一个INODE
     else if(name.size()<MAX_FILE_NAME) {
         for(int i=name.size();i<MAX_FILE_NAME;i++)
             name.push_back(' ');
+    }
+    if(name == "        ")
+    {
+    	cout<<"There file's name can't be empty."<<endl;
+    	return;
     }
     int index = get_DIR_index(rute);
     memset(buf,0,sizeof(buf));
@@ -521,64 +574,71 @@ void touch(string name)//在当前目录下加一项，新建一个INODE
     INODE_table[fd] = temp_i;//修改INODE_table
     write_INODE(fd,temp_i);//向磁盘写入INODE
 }
-void d_delete(int k)
+
+void rmdir( vector<string> dir_rute)
 {
-    char tem_buf[1024]={0};
-    memset(tem_buf,0,sizeof(tem_buf));
-    mydisk.GETBLOCK(tem_buf,k);
-    vector<DIR> tem_table;
-    tem_table = get_DIR_table(buf);
-    BLOCK_bitmap.clr(k);
-    for(int i=0;i<tem_table.size();i++)
-    {
-        if(tem_table[i].type != 0)
-        {
-            if(tem_table[i].type == 1)d_delete(INODE_table[tem_table[i].child].point[0]);
-            else if(tem_table[i].type == 2)f_delete(tem_table[i].child);
-        }
+    if(cur_rute == dir_rute) {
+        cout<<"You can't remove the current directory."<<endl;
+        return;
     }
-}
-void rmdir(string name)
-{
-    if(name.size()<MAX_FILE_NAME) {
-        for(int i=name.size();i<MAX_FILE_NAME;i++)
-            name.push_back(' ');
+    int fd = get_INODE_index(dir_rute);
+    if(fd == -1){
+        cout<<"There is no directory named "<<dir_rute[dir_rute.size()-1]<<endl;
+        return;
     }
-    int index = get_DIR_index(rute);
+    INODE_bitmap.clr(fd);
+    write_bitmap(INODE_bitmap,INODE_BITMAP_ADD);
+    int index = get_DIR_index(dir_rute);
+    BLOCK_bitmap.clr(index);
+    write_bitmap(BLOCK_bitmap,BLOCK_BITMAP_ADD);
     memset(buf,0,sizeof(buf));
     mydisk.GETBLOCK(buf,index);
     DIR_table.clear();
     DIR_table = get_DIR_table(buf);//得到了当前目录的目录文件
     for(int i=0;i<DIR_table.size();i++)
     {
-        if(DIR_table[i].filename == name && DIR_table[i].type == 1)
+        if(DIR_table[i].type == 1)
         {
-            INODE_bitmap.clr(DIR_table[i].child);
-            d_delete(INODE_table[DIR_table[i].child].point[0]);//给定DIR的index索引，将该目录下的所有文件都删除，并重置 bitmap
-            for(int j = i;j<DIR_table.size()-1;j++)
-            {
-                DIR temp_d;
-                temp_d = DIR_table[j+1];
-                write_DIR(index,j,temp_d);//write_DIR
-            }
-            DIR temp_d("",0,0);
-            write_DIR(index,DIR_table.size(),temp_d);
-            DIR_table.erase(DIR_table.begin()+i);
-            print_DIR_table();
-            return;
+            vector<string> tem_rute = dir_rute;
+            tem_rute.push_back(DIR_table[i].filename);
+            rmdir(tem_rute);
+        }
+        else if(DIR_table[i].type == 2)
+        {
+            f_delete(DIR_table[i].child);
         }
     }
-    cout<<"There is no directory named "<<name<<"."<<endl;
+    string wei = dir_rute[dir_rute.size()-1];//获得最后一个文件名
+    dir_rute.pop_back();
+    index = get_DIR_index(dir_rute);
+    memset(buf,0,sizeof(buf));
+    mydisk.GETBLOCK(buf,index);
+    DIR_table.clear();
+    DIR_table = get_DIR_table(buf);//得到了当前目录的目录文件
+    fd = find_DIR_in_DIR_table(DIR_table,wei,1);
+    for(int j = fd;j<DIR_table.size()-1;j++)
+    {
+        DIR temp_d;
+        temp_d = DIR_table[j+1];
+        write_DIR(index,j,temp_d);//write_DIR
+    }
+    DIR temp_d("",0,0);
+    write_DIR(index,DIR_table.size()-1,temp_d);
+    DIR_table.erase(DIR_table.begin()+fd);
+    //print_DIR_table();
     return;
 }
 void f_delete(int t)
 {
+    INODE_bitmap.clr(t);
+    write_bitmap(INODE_bitmap,INODE_BITMAP_ADD);
     for(int i=0;i<INODE_table[t].point.size();i++)
     {
         if(INODE_table[t].point[i]!=0)BLOCK_bitmap.clr(i);
     }
+    write_bitmap(BLOCK_bitmap,BLOCK_BITMAP_ADD);
 }
-void rmfile(string name)
+void rmfile()
 {
     if(name.size()<MAX_FILE_NAME) {
         for(int i=name.size();i<MAX_FILE_NAME;i++)
@@ -611,8 +671,85 @@ void rmfile(string name)
     return;
 }
 
-void write(string filename,string con)
+
+void copy()
 {
+    char str;
+    ifstream fin(con);
+    con = "";
+    if(!fin)cout<<"OPEN FILE ERROR."<<endl;
+    else {
+        while(fin>>str) {
+            con.push_back(str);
+        }
+        write();
+    }
+}
+
+void move(vector<string> dirc)
+{
+    int index = get_DIR_index(rute);
+    int ind = get_DIR_index(dirc);
+    if(index == -1)
+    {
+    	cout<<"There is no folder named "<<rute[rute.size()-1]<<endl;
+    	return;
+    }
+    if(ind == -1)
+    {
+    	cout<<"There is no folder named "<<dirc[dirc.size()-1]<<endl;
+    	return;
+    }
+    memset(buf,0,sizeof(buf));
+    mydisk.GETBLOCK(buf,index);
+    DIR_table.clear();
+    DIR_table = get_DIR_table(buf);//得到了当前目录的目录文件
+    int fd = find_DIR_in_DIR_table(DIR_table,name,0);
+    if(fd == -1)
+    {
+    	cout<<"There is no item named "<<name<<" under the folder "<<rute[rute.size()-1]<<endl;
+    	return;
+    }
+    DIR temp = DIR_table[fd];
+    for(int j = fd;j<DIR_table.size()-1;j++)
+    {
+        DIR temp_d;
+        temp_d = DIR_table[j+1];
+        write_DIR(index,j,temp_d);//write_DIR
+    }
+    DIR temp_d("",0,0);
+    write_DIR(index,DIR_table.size()-1,temp_d);
+    DIR_table.erase(DIR_table.begin()+fd);
+
+    if(con.size()<MAX_FILE_NAME)
+    {
+    	for(int i=con.size();i<MAX_FILE_NAME;i++)
+    		con.push_back(' ');
+    }
+    if(con == "        ")
+    {
+    	cout<<"There item's name can't be empty."<<endl;
+    	return;
+    }
+    temp.filename = con;
+    memset(buf,0,sizeof(buf));
+    mydisk.GETBLOCK(buf,ind);
+    DIR_table.clear();
+    DIR_table = get_DIR_table(buf);//得到了当前目录的目录文件
+    int k = find_DIR_in_DIR_table(DIR_table,temp.filename,temp.type);
+   	if(k = -1)write_DIR(ind,DIR_table.size(),temp);
+   	else
+   	{
+   		if(temp.type == 1)
+   			cout<<"There already existed a folder named "<<con<<endl;
+   		else cout<<"There already existed a file named "<<con<<endl;
+   	}
+}
+
+void write()
+{
+	cout<<con<<endl;
+    string filename = name;
     string str;
     if(filename.size()<MAX_FILE_NAME) {
         for(int i=filename.size();i<MAX_FILE_NAME;i++)
@@ -635,7 +772,11 @@ void write(string filename,string con)
             while(con.size()>BLOCK_SIZE)
             {
                 fd = find_free_block();
-                if(fd == -1) return;
+                if(fd == -1) 
+                {
+                	cout<<"There is no free block."<<endl;
+                	return;
+                }
                 BLOCK_bitmap.set(fd);//设置bitmap
                 str = con.substr(0,BLOCK_SIZE);
                 con = con.substr(BLOCK_SIZE,con.size()-BLOCK_NUM);
@@ -644,7 +785,11 @@ void write(string filename,string con)
                 t++;
             }
             fd = find_free_block();
-            if(fd == -1) return;
+            if(fd == -1)
+            {
+            	cout<<"There is no free block."<<endl;
+            	return;
+            }
             BLOCK_bitmap.set(fd);
             INODE_table[k].point[t] = fd;
             //cout<<fd<<" "<<con<<endl;
@@ -657,7 +802,7 @@ void write(string filename,string con)
     return;
 }
 
-void cat(string name)
+void cat()
 {
     if(name.size()<MAX_FILE_NAME) {
         for(int i=name.size();i<MAX_FILE_NAME;i++)
@@ -718,6 +863,7 @@ int find_free_block()
     cout<<"There is no free block."<<endl;
     return -1;
 }
+
 int find_free_INODE()
 {
     for(int i=0;i<INODE_NUM;i++)
@@ -797,32 +943,17 @@ void print_rute(vector<string> tem) {
     cout<<"> ";
 }
 
-/*vector<string> string_2_rute(string n) {//将string解析成路径
-    string name = n;
-    vector<string> list;
-    int pos = 0;
-    size_t last = 0;
-    size_t found = name.find_first_of("/");
-    while(found != string::npos) {
-        if(found == 0)list.push_back("root");
-        else 
-        {
-            string str = name.substr(last,found-last);
-            list.push_back(str);
-        }
-        name[found] = '*';
-        last = found+1;
-        found = name.find_first_of("/");
-    }
-    string str = name.substr(last,name.size());
-    list.push_back(str);
-    return list;
-}*/
-vector<string> string_2_rute(vector<string> cur_rute,string name) {//将string解析成路径
+vector<string> string_2_rute(string name) {//将string解析成路径
     while(true)//去除name后面的"/","\"
     {
         char ch = name[name.size()-1];
-        if(ch == '\\' || ch == '/')
+        if(name.size() == 1 && (ch == '\\' || ch == '/'))
+        {
+            rute.clear();
+            rute.push_back(root_str);
+            return rute;
+        }
+        else if(ch == '\\' || ch == '/')
         {
             name.pop_back();
         }
@@ -861,7 +992,7 @@ vector<string> string_2_rute(vector<string> cur_rute,string name) {//将string�
     if(str == ".")list.erase(list.end());
     else if(str == "..") {
         list.erase(list.end());
-        if(!list.empty())list.erase(list.end());
+        if(list.size()>=2)list.erase(list.end());
     }
     else if(str == root_str && last == 0 ) {
         list.clear();
@@ -936,10 +1067,9 @@ void write_bitmap(Bitmap B,int k)//将更新后的Bitmap写入磁盘，其中k�
     mydisk.GETBLOCK(buf,k);
     for(int i=0;i<B.data.size();i++)
     {
-        int k = i*4;
         for(int j=0;j<4;j++)
         {
-            buf[k+j] = ((B.data[i]>>(j*8)) & 0xFF);
+            buf[i*4+j] = ((B.data[i]>>(j*8)) & 0xFF);
         }
     }
     mydisk.PUTBLOCK(buf,k);
