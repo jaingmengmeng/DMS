@@ -18,4 +18,4 @@ A simple document management system
     
 # To do next
 To complete the function of "cd".  
-For example,"cd ADC".When there is no folder named "ADC",my program will give a prompt, however, i want to make it be able to ask the user whether want to make a new folder beyond the specified dirctory. Thus,"no" for rejection and "yes" for permission.
+For example, "cd ADC". When there is no folder named "ADC", my program will give a prompt and do nothing next. However, i want to make it be able to ask the user whether he want to make a new folder beyond the specified dirctory or not. Thus,"no" for rejection and "yes" for permission.
